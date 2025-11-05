@@ -108,8 +108,6 @@ class LocationAccess(models.Model):
         return f"Access: {self.external_user} -> {self.location} ({status})"
     
 
-
-
 class DocumentUpload(models.Model):
     SECTION_CHOICES = [
         ("2.1", "Legal approvals and permits"),

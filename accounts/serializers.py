@@ -160,13 +160,17 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentUpload
         fields = "__all__"
-        read_only_fields = ["uploaded_at", "locked"]
+        read_only_fields = ["uploaded_at"]  
 
     def create(self, validated_data):
         request = self.context.get("request")
         if request and hasattr(request, "user"):
             validated_data["uploaded_by"] = request.user
         return super().create(validated_data)
+
+    def update(self, validated_data):
+     
+        return super().update(validated_data)
 
 
 class FormSubmissionSerializer(serializers.ModelSerializer):
@@ -175,7 +179,7 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FormSubmission
         fields = "__all__"
-        read_only_fields = ["submitted_at", "locked"]
+        read_only_fields = ["submitted_at"] 
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -183,5 +187,28 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
             validated_data["submitted_by"] = request.user
         return super().create(validated_data)
 
+    def update(self, validated_data):
+        return super().update(validated_data)
+    submitted_by = serializers.StringRelatedField(read_only=True)
 
+    class Meta:
+        model = FormSubmission
+        fields = "__all__"
+        read_only_fields = ["submitted_at"] 
 
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            validated_data["submitted_by"] = request.user
+        return super().create(validated_data)
+
+    def update(self, validated_data):
+        """Allow admin to update locked forms"""
+        return super().update(validated_data)
+    
+    def get_queryset(self):
+       queryset = super().get_queryset()
+       location_id = self.request.query_params.get('location', None)
+       if location_id is not None:
+        queryset = queryset.filter(location_id=location_id)
+        return queryset

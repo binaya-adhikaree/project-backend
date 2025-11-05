@@ -1,27 +1,24 @@
-from rest_framework import status, viewsets, mixins,permissions
+from rest_framework import status, viewsets, permissions
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 
-
-from .models import User, Location, LocationAccess
+from .models import User, Location, LocationAccess, DocumentUpload, FormSubmission
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, ChangePasswordSerializer,
-    LoginSerializer, LocationSerializer, LocationAccessSerializer, AssignOperatorSerializer
+    LoginSerializer, LocationSerializer, LocationAccessSerializer, AssignOperatorSerializer,
+    DocumentUploadSerializer, FormSubmissionSerializer
 )
 from .permissions import IsAdmin, IsGastronom, IsExternal, IsOwnerOrAdmin, CanAccessLocation
-
-from .models import DocumentUpload, FormSubmission
-from .serializers import DocumentUploadSerializer, FormSubmissionSerializer
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = (AllowAny,)
+
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -38,10 +35,10 @@ def register_view(request):
         return Response(data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login_view(request):
- 
     serializer = LoginSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -54,13 +51,10 @@ def login_view(request):
     }
     return Response(data, status=status.HTTP_200_OK)
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    """
-    Blacklist refresh token on logout.
-    Body: { "refresh": "<token>" }
-    """
     refresh_token = request.data.get("refresh")
     if not refresh_token:
         return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -71,11 +65,13 @@ def logout_view(request):
         return Response({"detail": "Token invalid or already blacklisted."}, status=status.HTTP_400_BAD_REQUEST)
     return Response({"detail": "Logged out successfully."}, status=status.HTTP_200_OK)
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def profile_view(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
 
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
@@ -85,6 +81,7 @@ def profile_update_view(request):
         serializer.save()
         return Response(UserSerializer(request.user).data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -101,12 +98,10 @@ def change_password_view(request):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-  
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        # list/create/etc restricted: only ADMIN
         if self.action in ["list", "create", "retrieve", "update", "partial_update", "deactivate", "activate", "destroy"]:
             permission_classes = [IsAuthenticated, IsAdmin]
         else:
@@ -164,17 +159,13 @@ class LocationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="assign_operator")
     def assign_operator(self, request, pk=None):
-        """
-        ADMIN only - change operator for a location.
-        Body: { operator_id: <id> }
-        """
+     
         location = self.get_object()
         serializer = AssignOperatorSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         operator_id = serializer.validated_data["operator_id"]
         new_operator = get_object_or_404(User, id=operator_id)
-        # Only admin allowed here (permission already enforced)
         try:
             with transaction.atomic():
                 location.change_operator(new_operator)
@@ -189,7 +180,7 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create"]:
-            permission_classes = [IsAuthenticated]  # further checks in create()
+            permission_classes = [IsAuthenticated]
         elif self.action in ["list", "retrieve"]:
             permission_classes = [IsAuthenticated]
         elif self.action in ["revoke", "restore"]:
@@ -203,7 +194,6 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         if user.is_admin:
             return LocationAccess.objects.all()
         if user.is_gastronom:
-            # grants for their assigned location
             if not user.assigned_location:
                 return LocationAccess.objects.none()
             return LocationAccess.objects.filter(location=user.assigned_location)
@@ -212,28 +202,21 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         return LocationAccess.objects.none()
 
     def create(self, request, *args, **kwargs):
-        """
-        GASTRONOM: can grant access to their location only.
-        ADMIN: can grant to any location.
-        EXTERNAL: cannot create grants.
-        """
+       
         user = request.user
         if user.is_external:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         location = serializer.validated_data["location"]
-        external_user = serializer.validated_data["external_user"]
         if user.is_gastronom and user.assigned_location and location.id != user.assigned_location.id:
             return Response({"detail": "Gastronom can only grant access to their assigned location."}, status=status.HTTP_403_FORBIDDEN)
-        # create or restore access
         access = serializer.create(serializer.validated_data)
         return Response(LocationAccessSerializer(access).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], url_path="revoke")
     def revoke(self, request, pk=None):
         access = self.get_object()
-        # Only admin or gastronom of that location can revoke
         user = request.user
         if not (user.is_admin or (user.is_gastronom and user.assigned_location and user.assigned_location.id == access.location.id)):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
@@ -258,8 +241,50 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentUploadSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.action in ['destroy', 'update', 'partial_update']:
+            return [permissions.IsAuthenticated(), IsAdmin()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        """Filter documents based on user role"""
+        user = self.request.user
+        if user.is_admin:
+            return DocumentUpload.objects.all()
+        if user.is_gastronom:
+            if user.assigned_location:
+                return DocumentUpload.objects.filter(location=user.assigned_location)
+            return DocumentUpload.objects.none()
+        if user.is_external:
+            accessible_locations = Location.objects.filter(
+                access_grants__external_user=user, 
+                access_grants__is_active=True
+            )
+            return DocumentUpload.objects.filter(location__in=accessible_locations)
+        return DocumentUpload.objects.none()
+
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        """Admin can delete any document"""
+        document = self.get_object()
+        document.delete()
+        return Response(
+            {"detail": "Document deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsAdmin])
+    def toggle_lock(self, request, pk=None):
+        """Admin can lock/unlock documents"""
+        document = self.get_object()
+        document.locked = not document.locked
+        document.save()
+        return Response({
+            'detail': f'Document {"locked" if document.locked else "unlocked"} successfully.',
+            'locked': document.locked
+        })
 
 
 class FormSubmissionViewSet(viewsets.ModelViewSet):
@@ -267,5 +292,74 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = FormSubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        """Admin can delete/update, others can only create/read"""
+        if self.action in ['destroy', 'update', 'partial_update']:
+            return [permissions.IsAuthenticated(), IsAdmin()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        """Filter forms based on user role"""
+        user = self.request.user
+        if user.is_admin:
+            return FormSubmission.objects.all()
+        if user.is_gastronom:
+            if user.assigned_location:
+                return FormSubmission.objects.filter(location=user.assigned_location)
+            return FormSubmission.objects.none()
+        if user.is_external:
+            accessible_locations = Location.objects.filter(
+                access_grants__external_user=user,
+                access_grants__is_active=True
+            )
+            return FormSubmission.objects.filter(location__in=accessible_locations)
+        return FormSubmission.objects.none()
+
     def perform_create(self, serializer):
         serializer.save(submitted_by=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        """Admin can update even locked forms"""
+        instance = self.get_object()
+        
+        # Non-admin users cannot edit locked forms
+        if not request.user.is_admin and instance.locked:
+            return Response(
+                {"detail": "Cannot edit locked form. Contact admin."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Admin can partially update even locked forms"""
+        instance = self.get_object()
+        
+        # Non-admin users cannot edit locked forms
+        if not request.user.is_admin and instance.locked:
+            return Response(
+                {"detail": "Cannot edit locked form. Contact admin."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Admin can delete any form"""
+        form = self.get_object()
+        form.delete()
+        return Response(
+            {"detail": "Form deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsAdmin])
+    def toggle_lock(self, request, pk=None):
+        """Admin can lock/unlock forms"""
+        form = self.get_object()
+        form.locked = not form.locked
+        form.save()
+        return Response({
+            'detail': f'Form {"locked" if form.locked else "unlocked"} successfully.',
+            'locked': form.locked
+        })
