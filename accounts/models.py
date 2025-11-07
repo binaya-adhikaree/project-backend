@@ -5,8 +5,8 @@ from django.core.exceptions import ValidationError
 from cloudinary.utils import cloudinary_url
 import cloudinary
 from cloudinary.models import CloudinaryField
-from django.utils import timezone
 from django.conf import settings
+
 
 class User(AbstractUser):
     ROLE_ADMIN = "ADMIN"
@@ -113,10 +113,7 @@ class LocationAccess(models.Model):
         return f"Access: {self.external_user} -> {self.location} ({status})"
 
 
-from django.db import models
-from django.utils import timezone
-from cloudinary.models import CloudinaryField
-import cloudinary
+
 
 class DocumentUpload(models.Model):
     SECTION_CHOICES = [

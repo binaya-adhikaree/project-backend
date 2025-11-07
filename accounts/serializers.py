@@ -27,20 +27,19 @@ class UserCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate_email(self, value):
-        """✅ Ensure email is unique"""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already in use.")
         return value
 
     def validate(self, data):
-        # ✅ Check passwords match
+       
         if data["password"] != data["password2"]:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         
-        # ✅ Validate password strength
+        
         validate_password(data["password"])
         
-        # ✅ Validate EXTERNAL users have company_name
+        
         role = data.get("role", User.ROLE_GASTRONOM)
         if role == User.ROLE_EXTERNAL and not data.get("company_name"):
             raise serializers.ValidationError({
@@ -130,13 +129,13 @@ class LocationAccessSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "granted_by", "granted_at"]
 
     def validate_external_user(self, value):
-        """Ensure only EXTERNAL users can be granted access"""
+      
         if value.role != User.ROLE_EXTERNAL:
             raise serializers.ValidationError("Access can only be granted to EXTERNAL users.")
         return value
 
     def validate(self, attrs):
-        """Additional validation"""
+      
         location = attrs.get('location')
         external_user = attrs.get('external_user')
         
@@ -146,7 +145,7 @@ class LocationAccessSerializer(serializers.ModelSerializer):
         if not external_user:
             raise serializers.ValidationError({"external_user": "External user is required."})
         
-        # Check if access already exists
+       
         existing = LocationAccess.objects.filter(
             location=location,
             external_user=external_user
@@ -160,33 +159,33 @@ class LocationAccessSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Handle both new access and reactivating existing access"""
+   
         location = validated_data['location']
         external_user = validated_data['external_user']
         granted_by = validated_data.get('granted_by')
 
-        # Try to get existing access
+        
         existing_access = LocationAccess.objects.filter(
             location=location,
             external_user=external_user
         ).first()
 
         if existing_access:
-            # Reactivate existing access
+            
             existing_access.is_active = True
             existing_access.granted_by = granted_by
             existing_access.save()
-            print(f"✅ Reactivated access for {external_user.username} to {location.name}")
+          
             return existing_access
         else:
-            # Create new access
+            
             access = LocationAccess.objects.create(
                 location=location,
                 external_user=external_user,
                 granted_by=granted_by,
                 is_active=True
             )
-            print(f"✅ Created new access for {external_user.username} to {location.name}")
+            
             return access
 
 class LoginSerializer(serializers.Serializer):

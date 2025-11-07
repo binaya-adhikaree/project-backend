@@ -8,13 +8,13 @@ import cloudinary.uploader
 import cloudinary_storage
 import cloudinary.api
 from decouple import config
-
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 cloudinary.config(
-    cloud_name=config("CLOUDINARY_CLOUD_NAME"),  # Changed from CLOUD_NAME
+    cloud_name=config("CLOUDINARY_CLOUD_NAME"),
     api_key=config("CLOUDINARY_API_KEY"),
     api_secret=config("CLOUDINARY_API_SECRET"),
     secure=True
@@ -26,7 +26,9 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': config('CLOUDINARY_API_SECRET'),
 }
 
-SECRET_KEY = 'django-insecure-v-d2#1x%1xm8r5#q+48)g!%%t(nh6+y5x*=1w-p$^*e_ww9=3c'
+# SECRET_KEY = 'django-insecure-v-d2#1x%1xm8r5#q+48)g!%%t(nh6+y5x*=1w-p$^*e_ww9=3c'
+SECRET_KEY = config('SECRET_KEY')
+
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/Berlin"
@@ -34,9 +36,12 @@ USE_I18N = True
 USE_TZ = True
 
 
-DEBUG = True
+# DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -108,26 +113,27 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'myproject',
-        'USER': 'myuser',
-        'PASSWORD': '12345', 
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': config('DB_NAME', default=''),
+        'USER': config('DB_USER', default=''),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='3306'),
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'myproject',
+#         'USER': 'myuser',
+#         'PASSWORD': '12345', 
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#     }
+# }
 
 
 

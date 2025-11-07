@@ -175,8 +175,6 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({"detail": "User activated."})
 
 
-
-
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all().order_by("-created_at")
     serializer_class = LocationSerializer
@@ -222,8 +220,6 @@ class LocationViewSet(viewsets.ModelViewSet):
         except Exception as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(LocationSerializer(location).data)
-
-
 
 
 class LocationAccessViewSet(viewsets.ModelViewSet):
@@ -699,7 +695,6 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-
 class DocumentUploadViewSet(viewsets.ModelViewSet):
     queryset = DocumentUpload.objects.all().order_by("-uploaded_at")
     serializer_class = DocumentUploadSerializer
@@ -899,8 +894,6 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
             'detail': f'Document {"locked" if document.locked else "unlocked"} successfully.',
             'locked': document.locked
         })
-
-
 
 
 class FormSubmissionViewSet(viewsets.ModelViewSet):
