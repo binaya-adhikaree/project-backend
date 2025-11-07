@@ -1,7 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError   
+from cloudinary.utils import cloudinary_url
+import cloudinary
+from cloudinary.models import CloudinaryField
+from django.utils import timezone
+from django.conf import settings
 
 class User(AbstractUser):
     ROLE_ADMIN = "ADMIN"
@@ -106,7 +111,12 @@ class LocationAccess(models.Model):
     def __str__(self):
         status = "active" if self.is_active else "revoked"
         return f"Access: {self.external_user} -> {self.location} ({status})"
-    
+
+
+from django.db import models
+from django.utils import timezone
+from cloudinary.models import CloudinaryField
+import cloudinary
 
 class DocumentUpload(models.Model):
     SECTION_CHOICES = [
@@ -120,17 +130,63 @@ class DocumentUpload(models.Model):
         ("3.7", "Record of cleaning and detergents used"),
     ]
 
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="documents")
-    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="uploaded_documents")
+    location = models.ForeignKey("Location", on_delete=models.CASCADE, related_name="documents")
+    uploaded_by = models.ForeignKey("User", on_delete=models.SET_NULL, null=True, related_name="uploaded_documents")
     section = models.CharField(max_length=10, choices=SECTION_CHOICES)
-    file_url = models.URLField()  # Cloudinary URL
+    file = CloudinaryField("file", resource_type="raw")
     uploaded_at = models.DateTimeField(default=timezone.now)
-    locked = models.BooleanField(default=True)  # once uploaded, cannot be changed
+    locked = models.BooleanField(default=True)
+    resource_type = models.CharField(max_length=10, default="raw", choices=[("raw", "Raw"), ("image", "Image")])
 
     def __str__(self):
         return f"{self.location.name} - {self.section} ({self.uploaded_by.username})"
 
-
+    @property
+    def file_url(self):
+        """Get the public URL for the file"""
+        if not self.file:
+            return None
+        
+        try:
+            # Get public_id from CloudinaryField
+            file_str = str(self.file)
+            
+            # Clean the public_id
+            if '/upload/' in file_str:
+                public_id = file_str.split('/upload/')[-1]
+            else:
+                public_id = file_str
+            
+            cloud_name = cloudinary.config().cloud_name
+            
+            # Use the stored resource_type
+            url = f"https://res.cloudinary.com/{cloud_name}/{self.resource_type}/upload/{public_id}"
+            return url
+            
+        except Exception as e:
+            print(f"❌ Error generating file_url: {e}")
+            return None
+    
+    @property
+    def file_name(self):
+        """Extract filename from the file"""
+        if not self.file:
+            return None
+            
+        try:
+            file_str = str(self.file)
+            
+            # Clean up the path
+            if '/upload/' in file_str:
+                file_str = file_str.split('/upload/')[-1]
+            
+            # Get the last part (filename with extension)
+            return file_str.split('/')[-1]
+            
+        except Exception as e:
+            print(f"❌ Error getting file_name: {e}")
+            return None
+        
 
 class FormSubmission(models.Model):
     SECTION_CHOICES = [

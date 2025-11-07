@@ -7,7 +7,6 @@ from .views import (
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import DocumentUploadViewSet, FormSubmissionViewSet
 
-
 router = DefaultRouter()
 router.register(r"users", UserViewSet, basename="user")
 router.register(r"locations", LocationViewSet, basename="location")

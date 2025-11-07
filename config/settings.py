@@ -1,10 +1,30 @@
 
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary_storage
+import cloudinary.api
+from decouple import config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+cloudinary.config(
+    cloud_name=config("CLOUDINARY_CLOUD_NAME"),  # Changed from CLOUD_NAME
+    api_key=config("CLOUDINARY_API_KEY"),
+    api_secret=config("CLOUDINARY_API_SECRET"),
+    secure=True
+)
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': config('CLOUDINARY_API_KEY'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET'),
+}
 
 SECRET_KEY = 'django-insecure-v-d2#1x%1xm8r5#q+48)g!%%t(nh6+y5x*=1w-p$^*e_ww9=3c'
 
@@ -30,13 +50,19 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
-
+    "cloudinary_storage",
+    'django.contrib.staticfiles',
+    "cloudinary",
+   
     'accounts'
 ]
+
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -85,12 +111,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'myproject',
+        'USER': 'myuser',
+        'PASSWORD': '12345', 
+        'HOST': 'localhost',
+        'PORT': '3306',
     }
 }
+
 
 
 # Password validation

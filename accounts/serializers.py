@@ -5,8 +5,6 @@ from .models import User, Location, LocationAccess
 from django.contrib.auth import authenticate
 from .models import DocumentUpload, FormSubmission
 
-
-
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -60,7 +58,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
         user = User(**validated_data)
         user.set_password(password)
-        user.save()  # ✅ This will now work because models.py is fixed
+        user.save()
         return user
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -117,27 +115,79 @@ class AssignOperatorSerializer(serializers.Serializer):
 class LocationAccessSerializer(serializers.ModelSerializer):
     location_detail = LocationSerializer(source="location", read_only=True)
     external_user_detail = UserSerializer(source="external_user", read_only=True)
+    granted_by_detail = UserSerializer(source="granted_by", read_only=True)
 
     class Meta:
         model = LocationAccess
-        fields = ["id", "location", "location_detail", "external_user", "external_user_detail",
-                  "granted_by", "granted_at", "is_active"]
-        read_only_fields = ["id", "granted_by", "granted_at", "is_active"]
+        fields = [
+            "id", 
+            "location", "location_detail", 
+            "external_user", "external_user_detail",
+            "granted_by", "granted_by_detail",
+            "granted_at", 
+            "is_active"
+        ]
+        read_only_fields = ["id", "granted_by", "granted_at"]
+
+    def validate_external_user(self, value):
+        """Ensure only EXTERNAL users can be granted access"""
+        if value.role != User.ROLE_EXTERNAL:
+            raise serializers.ValidationError("Access can only be granted to EXTERNAL users.")
+        return value
+
+    def validate(self, attrs):
+        """Additional validation"""
+        location = attrs.get('location')
+        external_user = attrs.get('external_user')
+        
+        if not location:
+            raise serializers.ValidationError({"location": "Location is required."})
+        
+        if not external_user:
+            raise serializers.ValidationError({"external_user": "External user is required."})
+        
+        # Check if access already exists
+        existing = LocationAccess.objects.filter(
+            location=location,
+            external_user=external_user
+        ).first()
+        
+        if existing and existing.is_active:
+            raise serializers.ValidationError(
+                "This user already has active access to this location."
+            )
+        
+        return attrs
 
     def create(self, validated_data):
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            validated_data["granted_by"] = request.user
-        access, created = LocationAccess.objects.get_or_create(
-            location=validated_data["location"],
-            external_user=validated_data["external_user"],
-            defaults={"granted_by": validated_data.get("granted_by")}
-        )
-        if not created and not access.is_active:
-            access.is_active = True
-            access.granted_by = validated_data.get("granted_by")
-            access.save()
-        return access
+        """Handle both new access and reactivating existing access"""
+        location = validated_data['location']
+        external_user = validated_data['external_user']
+        granted_by = validated_data.get('granted_by')
+
+        # Try to get existing access
+        existing_access = LocationAccess.objects.filter(
+            location=location,
+            external_user=external_user
+        ).first()
+
+        if existing_access:
+            # Reactivate existing access
+            existing_access.is_active = True
+            existing_access.granted_by = granted_by
+            existing_access.save()
+            print(f"✅ Reactivated access for {external_user.username} to {location.name}")
+            return existing_access
+        else:
+            # Create new access
+            access = LocationAccess.objects.create(
+                location=location,
+                external_user=external_user,
+                granted_by=granted_by,
+                is_active=True
+            )
+            print(f"✅ Created new access for {external_user.username} to {location.name}")
+            return access
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -151,16 +201,22 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("User account is disabled.")
         data["user"] = user
         return data
-    
-
 
 class DocumentUploadSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField(read_only=True)
+    uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+    location_detail = LocationSerializer(source='location', read_only=True)
+    file_url = serializers.ReadOnlyField()
+    file_name = serializers.ReadOnlyField()
 
     class Meta:
         model = DocumentUpload
-        fields = "__all__"
-        read_only_fields = ["uploaded_at"]  
+        fields = [
+            "id", "location", "location_detail", "uploaded_by", "uploaded_by_detail",
+            "section", "file", "file_url", "file_name", "uploaded_at", 
+            "locked", "resource_type"
+        ]
+        read_only_fields = ["uploaded_at", "uploaded_by", "resource_type"]
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -168,47 +224,34 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
             validated_data["uploaded_by"] = request.user
         return super().create(validated_data)
 
-    def update(self, validated_data):
-     
-        return super().update(validated_data)
-
+    def update(self, instance, validated_data):
+        instance.section = validated_data.get("section", instance.section)
+        file = validated_data.get("file", None)
+        if file:
+            instance.file = file
+        instance.save()
+        return instance
 
 class FormSubmissionSerializer(serializers.ModelSerializer):
-    submitted_by = serializers.StringRelatedField(read_only=True)
-
-    class Meta:
-        model = FormSubmission
-        fields = "__all__"
-        read_only_fields = ["submitted_at"] 
-
-    def create(self, validated_data):
-        request = self.context.get("request")
-        if request and hasattr(request, "user"):
-            validated_data["submitted_by"] = request.user
-        return super().create(validated_data)
-
-    def update(self, validated_data):
-        return super().update(validated_data)
-    submitted_by = serializers.StringRelatedField(read_only=True)
-
-    class Meta:
-        model = FormSubmission
-        fields = "__all__"
-        read_only_fields = ["submitted_at"] 
-
-    def create(self, validated_data):
-        request = self.context.get("request")
-        if request and hasattr(request, "user"):
-            validated_data["submitted_by"] = request.user
-        return super().create(validated_data)
-
-    def update(self, validated_data):
-        """Allow admin to update locked forms"""
-        return super().update(validated_data)
+    submitted_by = UserSerializer(read_only=True)
+    submitted_by_detail = UserSerializer(source='submitted_by', read_only=True)
+    location_details = LocationSerializer(source='location', read_only=True)
     
-    def get_queryset(self):
-       queryset = super().get_queryset()
-       location_id = self.request.query_params.get('location', None)
-       if location_id is not None:
-        queryset = queryset.filter(location_id=location_id)
-        return queryset
+    class Meta:
+        model = FormSubmission
+        fields = [
+            'id', 'section', 'data', 'submitted_by', 'submitted_by_detail',
+            'location', 'location_details', 'locked', 'submitted_at'
+        ]
+        read_only_fields = ['id', 'submitted_by', 'submitted_at']
+    
+    def create(self, validated_data):
+        validated_data['submitted_by'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        instance.data = validated_data.get('data', instance.data)
+        instance.section = validated_data.get('section', instance.section)
+        instance.locked = validated_data.get('locked', instance.locked)
+        instance.save()
+        return instance
