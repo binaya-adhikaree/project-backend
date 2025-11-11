@@ -201,6 +201,36 @@ class LoginSerializer(serializers.Serializer):
         data["user"] = user
         return data
 
+# class DocumentUploadSerializer(serializers.ModelSerializer):
+#     uploaded_by = serializers.StringRelatedField(read_only=True)
+#     uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+#     location_detail = LocationSerializer(source='location', read_only=True)
+#     file_url = serializers.ReadOnlyField()
+#     file_name = serializers.ReadOnlyField()
+
+#     class Meta:
+#         model = DocumentUpload
+#         fields = [
+#             "id", "location", "location_detail", "uploaded_by", "uploaded_by_detail",
+#             "section", "file", "file_url", "file_name", "uploaded_at", 
+#             "locked", "resource_type"
+#         ]
+#         read_only_fields = ["uploaded_at", "uploaded_by", "resource_type"]
+
+#     def create(self, validated_data):
+#         request = self.context.get("request")
+#         if request and hasattr(request, "user"):
+#             validated_data["uploaded_by"] = request.user
+#         return super().create(validated_data)
+
+#     def update(self, instance, validated_data):
+#         instance.section = validated_data.get("section", instance.section)
+#         file = validated_data.get("file", None)
+#         if file:
+#             instance.file = file
+#         instance.save()
+#         return instance
+
 class DocumentUploadSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField(read_only=True)
     uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
@@ -211,9 +241,18 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentUpload
         fields = [
-            "id", "location", "location_detail", "uploaded_by", "uploaded_by_detail",
-            "section", "file", "file_url", "file_name", "uploaded_at", 
-            "locked", "resource_type"
+            "id", 
+            "location", 
+            "location_detail", 
+            "uploaded_by", 
+            "uploaded_by_detail",
+            "section", 
+            "file", 
+            "file_url", 
+            "file_name", 
+            "uploaded_at", 
+            "locked", 
+            "resource_type"
         ]
         read_only_fields = ["uploaded_at", "uploaded_by", "resource_type"]
 

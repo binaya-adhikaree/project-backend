@@ -695,6 +695,7 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+
 class DocumentUploadViewSet(viewsets.ModelViewSet):
     queryset = DocumentUpload.objects.all().order_by("-uploaded_at")
     serializer_class = DocumentUploadSerializer
@@ -702,13 +703,13 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_permissions(self):
-        """Admin can delete/update, others can only create/read"""
+     
         if self.action in ['destroy', 'update', 'partial_update']:
             return [permissions.IsAuthenticated(), IsAdmin()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        """Filter documents based on user role and location parameter"""
+
         user = self.request.user
         
         if user.is_admin:
@@ -719,7 +720,7 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
             else:
                 return DocumentUpload.objects.none()
         elif user.is_external:
-            # External users see documents only from locations they have access to
+    
             accessible_locations = Location.objects.filter(
                 access_grants__external_user=user, 
                 access_grants__is_active=True
@@ -728,7 +729,7 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
         else:
             return DocumentUpload.objects.none()
         
-        # Filter by location if provided
+        
         location_id = self.request.query_params.get('location', None)
         if location_id is not None:
             queryset = queryset.filter(location_id=location_id)
@@ -755,12 +756,12 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Check if user has access to this location
+      
         try:
             location = Location.objects.get(id=location_id)
             
             if user.is_external:
-                # Check if external user has active access
+             
                 has_access = LocationAccess.objects.filter(
                     location=location,
                     external_user=user,
@@ -773,7 +774,7 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_403_FORBIDDEN
                     )
             elif user.is_gastronom:
-                # Check if gastronom is assigned to this location
+            
                 if not user.assigned_location or user.assigned_location.id != location.id:
                     return Response(
                         {"error": "You can only upload to your assigned location"},
@@ -785,7 +786,7 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # File validation
+ 
         allowed_types = [
             'application/pdf', 
             'image/jpeg', 
@@ -809,28 +810,24 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            # Determine resource type
             is_image = file.content_type.startswith('image/')
             resource_type = "image" if is_image else "raw"
             
-            print(f"📤 Uploading: {file.name}")
-            print(f"👤 User: {user.username} ({user.role})")
-            print(f"📍 Location: {location.name}")
+    
             
-            # Upload to Cloudinary
+
             upload_result = cloudinary.uploader.upload(
                 file,
                 resource_type=resource_type,
                 folder="documents",
-                use_filename=True,
                 unique_filename=True,
-                type="upload",
+                invalidate=True,
+                type="upload",       
                 access_mode="public"
             )
             
-            print(f"✅ Upload successful!")
-
-            # Create document record
+        
+            
             document = DocumentUpload.objects.create(
                 location=location,
                 section=section,
@@ -852,10 +849,9 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
             )
 
     def destroy(self, request, *args, **kwargs):
-        """Admin can delete any document"""
         document = self.get_object()
         
-        # Delete from Cloudinary
+     
         try:
             if document.file:
                 file_str = str(document.file)
@@ -894,8 +890,7 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
             'detail': f'Document {"locked" if document.locked else "unlocked"} successfully.',
             'locked': document.locked
         })
-
-
+    
 class FormSubmissionViewSet(viewsets.ModelViewSet):
     queryset = FormSubmission.objects.all().order_by("-submitted_at")
     serializer_class = FormSubmissionSerializer
