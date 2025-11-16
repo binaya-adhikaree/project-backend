@@ -220,7 +220,7 @@ class LocationViewSet(viewsets.ModelViewSet):
             permission_classes = [IsAuthenticated]
         else:
             permission_classes = [IsAuthenticated]
-        return [p() for p in permission_classes]`-+`
+        return [p() for p in permission_classes]
 
     def get_queryset(self):
         user = self.request.user
