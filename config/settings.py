@@ -9,6 +9,7 @@ import cloudinary_storage
 import cloudinary.api
 from decouple import config
 import os
+import stripe
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,8 +27,19 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': config('CLOUDINARY_API_SECRET'),
 }
 
-# SECRET_KEY = 'django-insecure-v-d2#1x%1xm8r5#q+48)g!%%t(nh6+y5x*=1w-p$^*e_ww9=3c'
+
 SECRET_KEY = config('SECRET_KEY')
+
+
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY")
+stripe.api_key = STRIPE_SECRET_KEY
+
+
+STRIPE_MONTHLY_PRICE_ID = config('STRIPE_MONTHLY_PRICE_ID', 'price_monthly_id_here')
+STRIPE_YEARLY_PRICE_ID = config('STRIPE_YEARLY_PRICE_ID', 'price_yearly_id_here')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
+
+FRONTEND_URL = config('FRONTEND_URL', 'http://localhost:5173')
 
 
 LANGUAGE_CODE = "en-us"
@@ -179,8 +191,35 @@ CORS_ALLOW_CREDENTIALS = True
 
 
 
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SECURE_BROWSER_XSS_FILTER = True
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        '': {  
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}

@@ -2,12 +2,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     register_view, login_view, logout_view, profile_view, profile_update_view, change_password_view,
-    UserViewSet, LocationViewSet, LocationAccessViewSet
+    UserViewSet, LocationViewSet, LocationAccessViewSet,SubscriptionViewSet,stripe_webhook
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import DocumentUploadViewSet, FormSubmissionViewSet
 
 router = DefaultRouter()
+router.register(r'subscriptions', SubscriptionViewSet, basename='subscription')
 router.register(r"users", UserViewSet, basename="user")
 router.register(r"locations", LocationViewSet, basename="location")
 router.register(r"location-access", LocationAccessViewSet, basename="locationaccess")
@@ -30,4 +31,7 @@ urlpatterns = [
 
     # API viewsets
     path("", include(router.urls)),
+
+    # payment
+     path("webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
 ]

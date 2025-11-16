@@ -52,10 +52,10 @@ class User(AbstractUser):
         return f"{self.username} ({self.role})"
     
     def save(self, *args, **kwargs):
-        # ✅ FIX: Always call super().save(), not just for superusers
+      
         if self.is_superuser:
             self.role = self.ROLE_ADMIN
-        super().save(*args, **kwargs)  # THIS MUST ALWAYS RUN!
+        super().save(*args, **kwargs) 
 
 
 class Location(models.Model):
@@ -113,78 +113,6 @@ class LocationAccess(models.Model):
         return f"Access: {self.external_user} -> {self.location} ({status})"
 
 
-
-
-# class DocumentUpload(models.Model):
-#     SECTION_CHOICES = [
-#         ("2.1", "Legal approvals and permits"),
-#         ("2.2", "Construction approval or safety certificate"),
-#         ("2.3", "Installation and operation manual"),
-#         ("2.4", "Maintenance certificate"),
-#         ("2.5", "Site plans and schematics"),
-#         ("3.5", "Waste removal record"),
-#         ("3.6", "Inspection report (General inspection)"),
-#         ("3.7", "Record of cleaning and detergents used"),
-#     ]
-
-#     location = models.ForeignKey("Location", on_delete=models.CASCADE, related_name="documents")
-#     uploaded_by = models.ForeignKey("User", on_delete=models.SET_NULL, null=True, related_name="uploaded_documents")
-#     section = models.CharField(max_length=10, choices=SECTION_CHOICES)
-    
-   
-#     file = CloudinaryField("file")  
-    
-#     uploaded_at = models.DateTimeField(default=timezone.now)
-#     locked = models.BooleanField(default=True)
-#     resource_type = models.CharField(max_length=10, default="raw", choices=[("raw", "Raw"), ("image", "Image")])
-
-#     def __str__(self):
-#         return f"{self.location.name} - {self.section} ({self.uploaded_by.username})"
-
-#     @property
-#     def file_url(self):
-  
-#         if not self.file:
-#             return None
-        
-#         try:
-        
-#             file_str = str(self.file)
-            
-        
-#             if '/upload/' in file_str:
-#                 public_id = file_str.split('/upload/')[-1]
-#             else:
-#                 public_id = file_str
-            
-#             cloud_name = cloudinary.config().cloud_name
-            
-        
-#             url = f"https://res.cloudinary.com/{cloud_name}/{self.resource_type}/upload/{public_id}"
-#             return url
-            
-#         except Exception as e:
-#             print(f"❌ Error generating file_url: {e}")
-#             return None
-    
-#     @property
-#     def file_name(self):
-       
-#         if not self.file:
-#             return None
-            
-#         try:
-#             file_str = str(self.file)
-            
-           
-#             if '/upload/' in file_str:
-#                 file_str = file_str.split('/upload/')[-1]
-           
-#             return file_str.split('/')[-1]
-            
-#         except Exception as e:
-#             print(f"❌ Error getting file_name: {e}")
-#             return None
         
 class DocumentUpload(models.Model):
     SECTION_CHOICES = [
@@ -279,3 +207,69 @@ class FormSubmission(models.Model):
 
     def __str__(self):
         return f"{self.location.name} - {self.section} ({self.submitted_by.username})"
+
+
+class Subscription(models.Model):
+    PLAN_MONTHLY = "MONTHLY"
+    PLAN_YEARLY = "YEARLY"
+    PLAN_CHOICES = [
+        (PLAN_MONTHLY, "Monthly"),
+        (PLAN_YEARLY, "Yearly"),
+    ]
+
+    STATUS_ACTIVE = "ACTIVE"
+    STATUS_INACTIVE = "INACTIVE"
+    STATUS_CANCELLED = "CANCELLED"
+    STATUS_PAST_DUE = "PAST_DUE"
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, "Active"),
+        (STATUS_INACTIVE, "Inactive"),
+        (STATUS_CANCELLED, "Cancelled"),
+        (STATUS_PAST_DUE, "Past Due"),
+    ]
+
+    gastronom = models.OneToOneField(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name="subscription",
+        limit_choices_to={'role': User.ROLE_GASTRONOM}
+    )
+    location = models.ForeignKey(
+        Location, 
+        on_delete=models.CASCADE, 
+        related_name="subscriptions"
+    )
+    
+   
+    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_subscription_id = models.CharField(max_length=255, blank=True, null=True)
+    
+    #
+    plan_type = models.CharField(max_length=20, choices=PLAN_CHOICES, default=PLAN_MONTHLY)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_INACTIVE)
+    
+   
+    current_period_start = models.DateTimeField(null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('gastronom', 'location')
+
+    def __str__(self):
+        return f"{self.gastronom.username} - {self.location.name} ({self.status})"
+
+    @property
+    def is_active(self):
+        return self.status == self.STATUS_ACTIVE
+
+    @property
+    def can_upload(self):
+        return self.is_active
+
+    def clean(self):
+        if self.gastronom and not self.gastronom.is_gastronom:
+            raise ValidationError("Subscriptions can only be assigned to Gastronom users.")
