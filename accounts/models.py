@@ -112,8 +112,7 @@ class LocationAccess(models.Model):
         status = "active" if self.is_active else "revoked"
         return f"Access: {self.external_user} -> {self.location} ({status})"
 
-
-        
+   
 class DocumentUpload(models.Model):
     SECTION_CHOICES = [
         ("2.1", "Legal approvals and permits"),

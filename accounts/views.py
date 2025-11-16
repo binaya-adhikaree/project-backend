@@ -135,7 +135,7 @@ def profile_view(request):
             except Subscription.DoesNotExist:
                 data['subscription'] = None
     
-    data['dashboard'] = get_user_dashboard_type(user)
+    data['dashboard'] = get_user_dashboard_type(user) 
     return Response(data)
 
 
@@ -163,9 +163,7 @@ def change_password_view(request):
     return Response({"detail": "Password changed successfully."})
 
 
-# ============================================
-# USER VIEWSET
-# ============================================
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = UserSerializer
@@ -208,9 +206,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({"detail": "User activated."})
 
 
-# ============================================
-# LOCATION VIEWSET
-# ============================================
+
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all().order_by("-created_at")
     serializer_class = LocationSerializer
@@ -224,7 +220,7 @@ class LocationViewSet(viewsets.ModelViewSet):
             permission_classes = [IsAuthenticated]
         else:
             permission_classes = [IsAuthenticated]
-        return [p() for p in permission_classes]
+        return [p() for p in permission_classes]`-+`
 
     def get_queryset(self):
         user = self.request.user
@@ -257,212 +253,6 @@ class LocationViewSet(viewsets.ModelViewSet):
         return Response(LocationSerializer(location).data)
 
 
-# class LocationAccessViewSet(viewsets.ModelViewSet):
-#     queryset = LocationAccess.objects.all().order_by("-granted_at")
-#     serializer_class = LocationAccessSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def get_queryset(self):
-       
-#         user = self.request.user
-        
-#         if user.is_admin:
-#             return LocationAccess.objects.all().order_by("-granted_at")
-#         elif user.is_gastronom:
-#             if not user.assigned_location:
-#                 return LocationAccess.objects.none()
-#             return LocationAccess.objects.filter(location=user.assigned_location).order_by("-granted_at")
-#         elif user.is_external:
-#             return LocationAccess.objects.filter(external_user=user).order_by("-granted_at")
-#         else:
-#             return LocationAccess.objects.none()
-
-#     def create(self, request, *args, **kwargs):
-    
-    
-#         user = request.user
-
-#         if user.is_external:
-#             return Response(
-#                 {"detail": "External users cannot grant access."},
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
-
-#         data = request.data.copy()
-
-#         if user.is_gastronom:
-#             if not user.assigned_location:
-#                 return Response(
-#                     {"detail": "You are not assigned to any location."},
-#                     status=status.HTTP_403_FORBIDDEN
-#                 )
-            
-#             if 'location' in data:
-#                 requested_location_id = int(data['location'])
-#                 if requested_location_id != user.assigned_location.id:
-#                     return Response(
-#                         {"detail": "You can only grant access to your assigned location."},
-#                         status=status.HTTP_403_FORBIDDEN
-#                     )
-#             else:
-#                 data['location'] = user.assigned_location.id
-
-#         if user.is_admin:
-#             if 'location' not in data:
-#                 return Response(
-#                     {"detail": "Location is required."},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#         if 'external_user' not in data:
-#             return Response(
-#                 {"detail": "External user is required."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         try:
-#             external_user_id = int(data['external_user'])
-#             external_user = User.objects.get(id=external_user_id)
-            
-#             if external_user.role != User.ROLE_EXTERNAL:
-#                 return Response(
-#                     {"detail": "Selected user is not an external user."},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-#         except User.DoesNotExist:
-#             return Response(
-#                 {"detail": "External user not found."},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-#         except (ValueError, TypeError):
-#             return Response(
-#                 {"detail": "Invalid external user ID."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         try:
-#             location_id = int(data['location'])
-#             Location.objects.get(id=location_id)
-#         except Location.DoesNotExist:
-#             return Response(
-#                 {"detail": "Location not found."},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-#         except (ValueError, TypeError):
-#             return Response(
-#                 {"detail": "Invalid location ID."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         serializer = self.get_serializer(data=data)
-#         serializer.is_valid(raise_exception=True)
-#         self.perform_create(serializer)
-#         headers = self.get_success_headers(serializer.data)
-#         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
-
-
-
-
-
-
-#     def perform_create(self, serializer):
-#         """Set granted_by to current user when creating access"""
-#         serializer.save(granted_by=self.request.user)
-
-#     @action(detail=True, methods=["post"], url_path="revoke")
-#     def revoke(self, request, pk=None):
-#         """Revoke access (set is_active to False)"""
-#         access = self.get_object()
-#         user = request.user
-
-#         has_permission = False
-        
-#         if user.is_admin:
-#             has_permission = True
-#         elif user.is_gastronom:
-#             if user.assigned_location and user.assigned_location.id == access.location.id:
-#                 has_permission = True
-
-#         if not has_permission:
-#             return Response(
-#                 {"detail": "You don't have permission to revoke this access."},
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
-
-#         if not access.is_active:
-#             return Response(
-#                 {"detail": "Access is already revoked."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         access.is_active = False
-#         access.save(update_fields=["is_active"])
-        
-#         return Response(
-#             {
-#                 "detail": "Access revoked successfully.",
-#                 "access": LocationAccessSerializer(access).data
-#             },
-#             status=status.HTTP_200_OK
-#         )
-
-#     @action(detail=True, methods=["post"], url_path="restore")
-#     def restore(self, request, pk=None):
-#         """Restore access (set is_active to True)"""
-#         access = self.get_object()
-#         user = request.user
-
-#         has_permission = False
-        
-#         if user.is_admin:
-#             has_permission = True
-#         elif user.is_gastronom:
-#             if user.assigned_location and user.assigned_location.id == access.location.id:
-#                 has_permission = True
-
-#         if not has_permission:
-#             return Response(
-#                 {"detail": "You don't have permission to restore this access."},
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
-
-#         if access.is_active:
-#             return Response(
-#                 {"detail": "Access is already active."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         access.is_active = True
-#         access.granted_by = user
-#         access.save(update_fields=["is_active", "granted_by"])
-        
-#         return Response(
-#             {
-#                 "detail": "Access restored successfully.",
-#                 "access": LocationAccessSerializer(access).data
-#             },
-#             status=status.HTTP_200_OK
-#         )
-
-#     @action(detail=False, methods=["get"], url_path="my-access")
-#     def my_access(self, request):
-#         """Get current user's location accesses (for external users)"""
-#         user = request.user
-        
-#         if not user.is_external:
-#             return Response(
-#                 {"detail": "This endpoint is only for external users."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-        
-#         accesses = LocationAccess.objects.filter(
-#             external_user=user,
-#             is_active=True
-#         ).select_related('location', 'granted_by')
-        
-#         serializer = self.get_serializer(accesses, many=True)
-#         return Response(serializer.data)
 
 class LocationAccessViewSet(viewsets.ModelViewSet):
     queryset = LocationAccess.objects.all().order_by("-granted_at")
@@ -470,29 +260,22 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter location access based on user role"""
+   
         user = self.request.user
-        
-        print(f"\n{'='*60}")
-        print(f"🔍 GET LOCATION ACCESS QUERYSET")
-        print(f"{'='*60}")
-        print(f"👤 User: {user.username} (ID: {user.id})")
-        print(f"🏷️  Role: {user.role}")
         
         if user.is_admin:
             queryset = LocationAccess.objects.all()
-            print(f"👑 Admin - returning all accesses: {queryset.count()} records")
+         
             
         elif user.is_gastronom:
             if not user.assigned_location:
-                print("❌ Gastronom has no assigned location")
+              
                 return LocationAccess.objects.none()
             
             queryset = LocationAccess.objects.filter(location=user.assigned_location)
-            print(f"👨‍🍳 Gastronom - returning accesses for location: {user.assigned_location.name}")
-            print(f"   Found {queryset.count()} access records")
+        
             
-            # Debug: Show details of each access
+         
             for access in queryset:
                 print(f"   - ID: {access.id}")
                 print(f"     External User: {access.external_user.username} ({access.external_user.company_name})")
@@ -504,7 +287,7 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
             queryset = LocationAccess.objects.filter(external_user=user)
             print(f"🏢 External user - returning own accesses: {queryset.count()} records")
             
-            # Debug: Show details of each access
+           
             for access in queryset:
                 print(f"   - ID: {access.id}")
                 print(f"     Location: {access.location.name} (ID: {access.location.id})")
@@ -513,55 +296,40 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
                 print(f"     Granted by: {access.granted_by.username if access.granted_by else 'N/A'}")
         else:
             queryset = LocationAccess.objects.none()
-            print(f"⚠️ Unknown role - returning empty queryset")
+           
         
-        print(f"{'='*60}\n")
+       
         return queryset.order_by("-granted_at")
 
     def list(self, request, *args, **kwargs):
-        """List all location accesses for the user"""
-        print(f"\n{'='*60}")
-        print(f"📋 LIST LOCATION ACCESSES")
-        print(f"{'='*60}")
-        
+      
+      
         queryset = self.filter_queryset(self.get_queryset())
         
-        print(f"📊 Total records to return: {queryset.count()}")
-        
+       
         serializer = self.get_serializer(queryset, many=True)
         
-        print(f"✅ Serialized {len(serializer.data)} records")
-        print(f"{'='*60}\n")
+        
         
         return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
-        """Retrieve a single location access"""
+       
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         
-        print(f"\n📄 Retrieved access ID: {instance.id}")
-        print(f"   Location: {instance.location.name}")
-        print(f"   External User: {instance.external_user.username}")
-        print(f"   Active: {instance.is_active}\n")
+       
         
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
-        """Create new location access (grant access to external user)"""
+       
         user = request.user
 
-        print(f"\n{'='*60}")
-        print(f"🔍 CREATE ACCESS REQUEST")
-        print(f"{'='*60}")
-        print(f"👤 User: {user.username} (ID: {user.id})")
-        print(f"🏷️  Role: {user.role}")
-        print(f"📦 Request Data: {request.data}")
-        print(f"{'='*60}\n")
 
-        # Only Gastronom or Admin can create access
+      
         if user.is_external:
-            print("❌ External user attempted to grant access - DENIED")
+          
             return Response(
                 {"detail": "External users cannot grant access."},
                 status=status.HTTP_403_FORBIDDEN
@@ -569,50 +337,49 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
 
         data = request.data.copy()
 
-        # Handle Gastronom-specific logic
+        
         if user.is_gastronom:
-            print(f"👨‍🍳 Processing Gastronom access grant...")
+           
             
             if not user.assigned_location:
-                print("❌ Gastronom has no assigned location")
                 return Response(
                     {"detail": "You are not assigned to any location."},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            print(f"📍 Gastronom assigned location: {user.assigned_location.name} (ID: {user.assigned_location.id})")
+          
             
-            # If location is provided in request, verify it matches assigned location
+           
             if 'location' in data:
                 requested_location_id = int(data['location'])
-                print(f"🔍 Requested location ID: {requested_location_id}")
+           
                 
                 if requested_location_id != user.assigned_location.id:
-                    print(f"❌ Location mismatch! Requested: {requested_location_id}, Assigned: {user.assigned_location.id}")
+            
                     return Response(
                         {"detail": "You can only grant access to your assigned location."},
                         status=status.HTTP_403_FORBIDDEN
                     )
-                print("✅ Location matches assigned location")
+                
             else:
-                # If not provided, set it automatically
+               
                 data['location'] = user.assigned_location.id
-                print(f"✅ Auto-set location to: {user.assigned_location.id}")
+                
 
-        # Admin can grant access to any location
+   
         if user.is_admin:
-            print(f"👑 Admin granting access...")
+        
             if 'location' not in data:
-                print("❌ Admin must specify location")
+               
                 return Response(
                     {"detail": "Location is required."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             print(f"📍 Admin granting access to location ID: {data['location']}")
 
-        # Validate external_user exists
+       
         if 'external_user' not in data:
-            print("❌ External user not specified")
+           
             return Response(
                 {"detail": "External user is required."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -621,112 +388,84 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         try:
             external_user_id = int(data['external_user'])
             external_user = User.objects.get(id=external_user_id)
-            print(f"👤 External user: {external_user.username} (ID: {external_user_id})")
-            print(f"🏢 Company: {external_user.company_name}")
+          
             
             if external_user.role != User.ROLE_EXTERNAL:
-                print(f"❌ User role is {external_user.role}, not EXTERNAL")
+         
                 return Response(
                     {"detail": "Selected user is not an external user."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         except User.DoesNotExist:
-            print(f"❌ External user with ID {data.get('external_user')} not found")
+           
             return Response(
                 {"detail": "External user not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
         except (ValueError, TypeError) as e:
-            print(f"❌ Invalid external_user ID: {e}")
+           
             return Response(
                 {"detail": "Invalid external user ID."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate location exists
+        
         try:
             location_id = int(data['location'])
             location = Location.objects.get(id=location_id)
-            print(f"📍 Location validated: {location.name} (ID: {location_id})")
+
         except Location.DoesNotExist:
-            print(f"❌ Location with ID {data.get('location')} not found")
+    
             return Response(
                 {"detail": "Location not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
         except (ValueError, TypeError) as e:
-            print(f"❌ Invalid location ID: {e}")
+            
             return Response(
                 {"detail": "Invalid location ID."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        print(f"\n📋 Final data being sent to serializer:")
-        print(f"   - Location: {data.get('location')} ({location.name})")
-        print(f"   - External User: {data.get('external_user')} ({external_user.username})")
-        print()
-
+    
         serializer = self.get_serializer(data=data)
         
         try:
             serializer.is_valid(raise_exception=True)
-            print("✅ Serializer validation passed")
         except Exception as e:
-            print(f"❌ Serializer validation failed: {e}")
-            print(f"   Errors: {serializer.errors}")
             raise
 
         self.perform_create(serializer)
         
-        print(f"\n{'='*60}")
-        print(f"✅ ACCESS GRANTED SUCCESSFULLY")
-        print(f"{'='*60}")
-        print(f"📄 Response data: {serializer.data}")
-        print(f"{'='*60}\n")
+      
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
-        """Set granted_by to current user when creating access"""
         user = self.request.user
-        print(f"💾 Saving access with granted_by: {user.username}")
         serializer.save(granted_by=user)
 
     def update(self, request, *args, **kwargs):
-        """Update location access (not typically used)"""
-        print(f"\n⚠️  UPDATE called on LocationAccess - this is unusual")
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
-        """Partial update location access (not typically used)"""
-        print(f"\n⚠️  PARTIAL_UPDATE called on LocationAccess - this is unusual")
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        """Delete location access (Admin only - prefer revoke instead)"""
+      
         user = request.user
         instance = self.get_object()
         
-        print(f"\n{'='*60}")
-        print(f"🗑️  DELETE ACCESS REQUEST")
-        print(f"{'='*60}")
-        print(f"👤 User: {user.username}")
-        print(f"🏷️  Role: {user.role}")
-        print(f"📄 Access ID: {instance.id}")
-        print(f"   Location: {instance.location.name}")
-        print(f"   External User: {instance.external_user.username}")
-        
+      
         if not user.is_admin:
-            print("❌ Only admins can delete access records")
-            print(f"{'='*60}\n")
+            
             return Response(
                 {"detail": "Only administrators can delete access records. Use revoke instead."},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        print("✅ Admin deleting access record")
-        print(f"{'='*60}\n")
+   
         
         return super().destroy(request, *args, **kwargs)
 
@@ -736,25 +475,15 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         access = self.get_object()
         user = request.user
 
-        print(f"\n{'='*60}")
-        print(f"🚫 REVOKE ACCESS REQUEST")
-        print(f"{'='*60}")
-        print(f"👤 User: {user.username} (ID: {user.id})")
-        print(f"🏷️  Role: {user.role}")
-        print(f"📄 Access ID: {access.id}")
-        print(f"   Location: {access.location.name} (ID: {access.location.id})")
-        print(f"   External User: {access.external_user.username}")
-        print(f"   Current Status: {'Active' if access.is_active else 'Revoked'}")
-
-        # Check permissions
+       
         has_permission = False
         
         if user.is_admin:
-            print("✅ Admin can revoke any access")
+            
             has_permission = True
         elif user.is_gastronom:
             if user.assigned_location and user.assigned_location.id == access.location.id:
-                print(f"✅ Gastronom can revoke access for their location")
+               
                 has_permission = True
             else:
                 print(f"❌ Gastronom can only revoke access for their assigned location")
@@ -762,15 +491,14 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
                 print(f"   Attempted: {access.location.name}")
 
         if not has_permission:
-            print(f"{'='*60}\n")
+         
             return Response(
                 {"detail": "You don't have permission to revoke this access."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         if not access.is_active:
-            print("⚠️  Access is already revoked")
-            print(f"{'='*60}\n")
+           
             return Response(
                 {"detail": "Access is already revoked."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -778,10 +506,7 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
 
         access.is_active = False
         access.save(update_fields=["is_active"])
-        
-        print("✅ Access revoked successfully")
-        print(f"{'='*60}\n")
-        
+      
         return Response(
             {
                 "detail": "Access revoked successfully.",
@@ -796,25 +521,14 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         access = self.get_object()
         user = request.user
 
-        print(f"\n{'='*60}")
-        print(f"♻️  RESTORE ACCESS REQUEST")
-        print(f"{'='*60}")
-        print(f"👤 User: {user.username} (ID: {user.id})")
-        print(f"🏷️  Role: {user.role}")
-        print(f"📄 Access ID: {access.id}")
-        print(f"   Location: {access.location.name} (ID: {access.location.id})")
-        print(f"   External User: {access.external_user.username}")
-        print(f"   Current Status: {'Active' if access.is_active else 'Revoked'}")
-
-        # Check permissions
+    
         has_permission = False
         
         if user.is_admin:
-            print("✅ Admin can restore any access")
             has_permission = True
         elif user.is_gastronom:
             if user.assigned_location and user.assigned_location.id == access.location.id:
-                print(f"✅ Gastronom can restore access for their location")
+                
                 has_permission = True
             else:
                 print(f"❌ Gastronom can only restore access for their assigned location")
@@ -822,26 +536,23 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
                 print(f"   Attempted: {access.location.name}")
 
         if not has_permission:
-            print(f"{'='*60}\n")
+           
             return Response(
                 {"detail": "You don't have permission to restore this access."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         if access.is_active:
-            print("⚠️  Access is already active")
-            print(f"{'='*60}\n")
             return Response(
                 {"detail": "Access is already active."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         access.is_active = True
-        access.granted_by = user  # Update who restored it
+        access.granted_by = user 
         access.save(update_fields=["is_active", "granted_by"])
         
-        print("✅ Access restored successfully")
-        print(f"{'='*60}\n")
+       
         
         return Response(
             {
@@ -853,18 +564,11 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-access")
     def my_access(self, request):
-        """Get current user's location accesses (for external users)"""
+       
         user = request.user
         
-        print(f"\n{'='*60}")
-        print(f"👤 MY ACCESS REQUEST")
-        print(f"{'='*60}")
-        print(f"User: {user.username}")
-        print(f"Role: {user.role}")
-        
         if not user.is_external:
-            print("⚠️  Only external users can use this endpoint")
-            print(f"{'='*60}\n")
+          
             return Response(
                 {"detail": "This endpoint is only for external users."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -887,31 +591,19 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="by-location/(?P<location_id>[^/.]+)")
     def by_location(self, request, location_id=None):
-        """Get all accesses for a specific location (Admin/Gastronom only)"""
+      
         user = request.user
         
-        print(f"\n{'='*60}")
-        print(f"📍 ACCESS BY LOCATION REQUEST")
-        print(f"{'='*60}")
-        print(f"User: {user.username}")
-        print(f"Role: {user.role}")
-        print(f"Location ID: {location_id}")
-        
+     
         try:
             location = Location.objects.get(id=location_id)
-            print(f"Location: {location.name}")
         except Location.DoesNotExist:
-            print("❌ Location not found")
-            print(f"{'='*60}\n")
             return Response(
                 {"detail": "Location not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Check permissions
+       
         if user.is_external:
-            print("❌ External users cannot access this endpoint")
-            print(f"{'='*60}\n")
             return Response(
                 {"detail": "You don't have permission to view this."},
                 status=status.HTTP_403_FORBIDDEN
@@ -919,8 +611,6 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
         
         if user.is_gastronom:
             if not user.assigned_location or user.assigned_location.id != location.id:
-                print("❌ Gastronom can only view accesses for their assigned location")
-                print(f"{'='*60}\n")
                 return Response(
                     {"detail": "You can only view accesses for your assigned location."},
                     status=status.HTTP_403_FORBIDDEN
@@ -930,12 +620,10 @@ class LocationAccessViewSet(viewsets.ModelViewSet):
             location=location
         ).select_related('external_user', 'granted_by')
         
-        print(f"📊 Found {accesses.count()} accesses for this location")
-        print(f"{'='*60}\n")
+     
         
         serializer = self.get_serializer(accesses, many=True)
         return Response(serializer.data)
-
 
 
 class DocumentUploadViewSet(viewsets.ModelViewSet):
@@ -1127,7 +815,6 @@ class DocumentUploadViewSet(viewsets.ModelViewSet):
         })
 
 
-
 class FormSubmissionViewSet(viewsets.ModelViewSet):
     queryset = FormSubmission.objects.all().order_by("-submitted_at")
     serializer_class = FormSubmissionSerializer
@@ -1174,7 +861,7 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         try:
             location = Location.objects.get(id=location_id)
             
-            # ✅ Check subscription for Gastronom
+           
             if user.is_gastronom:
                 if not check_gastronom_subscription(user, location):
                     return Response(
@@ -1185,7 +872,7 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_402_PAYMENT_REQUIRED
                     )
             
-            # Permission checks
+          
             if user.is_external:
                 has_access = LocationAccess.objects.filter(
                     location=location,
@@ -1211,7 +898,7 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # ✅ Continue with normal creation
+    
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -1269,7 +956,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Only show subscription for current gastronom"""
+     
         user = self.request.user
         if user.is_admin:
             return Subscription.objects.all()
@@ -1279,7 +966,6 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='my-subscription')
     def my_subscription(self, request):
-        """Get current user's subscription"""
         user = request.user
         
         if not user.is_gastronom:
@@ -1300,7 +986,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='create-checkout-session')
     def create_checkout_session(self, request):
-        """Create Stripe checkout session"""
+        
         user = request.user
         
         if not user.is_gastronom:
@@ -1345,13 +1031,13 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 subscription.stripe_customer_id = customer.id
                 subscription.save()
             
-            # Determine price based on plan
+           
             if plan_type == 'MONTHLY':
                 price_id = settings.STRIPE_MONTHLY_PRICE_ID
             else:
                 price_id = settings.STRIPE_YEARLY_PRICE_ID
             
-            # Create checkout session
+    
             checkout_session = stripe.checkout.Session.create(
                 customer=subscription.stripe_customer_id,
                 payment_method_types=['card'],
