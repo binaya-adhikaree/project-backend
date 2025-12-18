@@ -39,7 +39,8 @@ STRIPE_MONTHLY_PRICE_ID = config('STRIPE_MONTHLY_PRICE_ID', 'price_monthly_id_he
 STRIPE_YEARLY_PRICE_ID = config('STRIPE_YEARLY_PRICE_ID', 'price_yearly_id_here')
 STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
 
-FRONTEND_URL = config('FRONTEND_URL', 'http://localhost:5173')
+# FRONTEND_URL = config('FRONTEND_URL', 'http://localhost:5173')
+FRONTEND_URL='http://localhost:5173'
 
 
 LANGUAGE_CODE = "en-us"
@@ -48,8 +49,9 @@ USE_I18N = True
 USE_TZ = True
 
 
-# DEBUG = True
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = True
+# DEBUG = config('DEBUG', default=False, cast=bool)
+
 
 # ALLOWED_HOSTS = []
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
@@ -104,6 +106,17 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 25,
 }
 
+
+
+# For production with Gmail (example)
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your-email@gmail.com'
+# EMAIL_HOST_PASSWORD = 'your-app-password'  # Use app password, not regular password
+# DEFAULT_FROM_EMAIL = 'your-email@gmail.com'
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
@@ -137,6 +150,12 @@ DATABASES = {
 }
 
 
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+]
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -223,3 +242,14 @@ LOGGING = {
         },
     },
 }
+
+DEFAULT_FROM_EMAIL = 'noreply@example.com'
+FRONTEND_URL = 'http://localhost:3000'
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')

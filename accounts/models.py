@@ -243,7 +243,7 @@ class Subscription(models.Model):
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
     stripe_subscription_id = models.CharField(max_length=255, blank=True, null=True)
     
-    #
+    
     plan_type = models.CharField(max_length=20, choices=PLAN_CHOICES, default=PLAN_MONTHLY)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_INACTIVE)
     
@@ -251,7 +251,7 @@ class Subscription(models.Model):
     current_period_start = models.DateTimeField(null=True, blank=True)
     current_period_end = models.DateTimeField(null=True, blank=True)
     
-    # Timestamps
+ 
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 

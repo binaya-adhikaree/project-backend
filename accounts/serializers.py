@@ -4,6 +4,16 @@ from django.db import transaction
 from .models import User, Location, LocationAccess
 from django.contrib.auth import authenticate
 from .models import DocumentUpload, FormSubmission,Subscription
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.core.exceptions import ValidationError
+
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -65,16 +75,82 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ["email", "first_name", "last_name", "phone", "company_name"]
 
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
-    new_password2 = serializers.CharField(required=True)
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
-    def validate(self, data):
-        if data["new_password"] != data["new_password2"]:
-            raise serializers.ValidationError({"new_password": "New passwords do not match."})
-        validate_password(data["new_password"])
-        return data
+    def validate_email(self, value):
+        """Check if user with this email exists"""
+        if not User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("No user found with this email address.")
+        return value
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, attrs):
+        """Validate that passwords match and meet requirements"""
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        
+        # Validate password strength
+        try:
+            validate_password(attrs['new_password'])
+        except ValidationError as e:
+            raise serializers.ValidationError({"new_password": list(e.messages)})
+        
+        # Validate token and uid
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({"uid": "Invalid user ID."})
+        
+        token_generator = PasswordResetTokenGenerator()
+        if not token_generator.check_token(user, attrs['token']):
+            raise serializers.ValidationError({"token": "Invalid or expired token."})
+        
+        attrs['user'] = user
+        return attrs
+
+    def save(self):
+        """Set the new password for the user"""
+        user = self.validated_data['user']
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect.")
+        return value
+
+    def validate(self, attrs):
+        """Validate that new passwords match"""
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        
+        try:
+            validate_password(attrs['new_password'], self.context['request'].user)
+        except ValidationError as e:
+            raise serializers.ValidationError({"new_password": list(e.messages)})
+        
+        return attrs
+
+    def save(self):
+        """Update user's password"""
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user
 
 class LocationSerializer(serializers.ModelSerializer):
     current_operator = UserSerializer(read_only=True)
@@ -187,7 +263,6 @@ class LocationAccessSerializer(serializers.ModelSerializer):
             )
             
             return access
-
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()

@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     register_view, login_view, logout_view, profile_view, profile_update_view, change_password_view,
-    UserViewSet, LocationViewSet, LocationAccessViewSet,SubscriptionViewSet,stripe_webhook
+    UserViewSet, LocationViewSet, LocationAccessViewSet,SubscriptionViewSet,stripe_webhook ,PasswordResetConfirmView,PasswordResetRequestView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import DocumentUploadViewSet, FormSubmissionViewSet
@@ -24,10 +24,16 @@ urlpatterns = [
     path("auth/logout/", logout_view, name="auth-logout"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     
+
+     
+
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+     
     #Profile
     path("auth/profile/", profile_view, name="auth-profile"),
     path("auth/profile/update/", profile_update_view, name="auth-profile-update"),
-    path("auth/profile/change-password/", change_password_view, name="auth-change-password"),
+
 
     # API viewsets
     path("", include(router.urls)),

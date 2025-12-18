@@ -10,22 +10,27 @@ from datetime import datetime, timedelta
 from rest_framework.parsers import MultiPartParser, FormParser
 import cloudinary.uploader
 from django.conf import settings
-
+from rest_framework.views import APIView
 from .models import Subscription
 from .serializers import SubscriptionSerializer
 import stripe
-
+from django.core.mail import send_mail
 from .models import User, Location, LocationAccess, DocumentUpload, FormSubmission
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, ChangePasswordSerializer,
     LoginSerializer, LocationSerializer, LocationAccessSerializer, AssignOperatorSerializer,
-    DocumentUploadSerializer, FormSubmissionSerializer
+    DocumentUploadSerializer, FormSubmissionSerializer,PasswordResetRequestSerializer,PasswordResetConfirmSerializer
 )
 from .permissions import IsAdmin, IsGastronom, IsExternal, IsOwnerOrAdmin, CanAccessLocation
 
 from django.utils import timezone
 from datetime import datetime
 import logging
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -948,6 +953,113 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
             'locked': form.locked
         })
 
+
+class PasswordResetRequestView(APIView):
+    """
+    Request password reset - sends email with reset link
+    """
+    permission_classes = [AllowAny]
+    serializer_class = PasswordResetRequestSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            user = User.objects.get(email=email)
+            
+            # Generate token and uid
+            token_generator = PasswordResetTokenGenerator()
+            token = token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Create reset link - adjust frontend URL as needed
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            reset_link = f"{frontend_url}/reset-password/{uid}/{token}/"
+            
+            # Send email
+            subject = 'Password Reset Request'
+            message = f"""
+Hello {user.username},
+
+You requested to reset your password. Click the link below to reset it:
+
+{reset_link}
+
+If you didn't request this, please ignore this email.
+
+This link will expire in 24 hours.
+
+Best regards,
+Your Team
+            """
+            
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [email],
+                    fail_silently=False,
+                )
+                
+                return Response(
+                    {
+                        "message": "Password reset link has been sent to your email.",
+                        "email": email
+                    },
+                    status=status.HTTP_200_OK
+                )
+            except Exception as e:
+                return Response(
+                    {"error": "Failed to send email. Please try again later."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    Confirm password reset with token and set new password
+    """
+    permission_classes = [AllowAny]
+    serializer_class = PasswordResetConfirmSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Password has been reset successfully. You can now login with your new password."},
+                status=status.HTTP_200_OK
+            )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordChangeView(APIView):
+    """
+    Change password for authenticated users
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Password changed successfully."},
+                status=status.HTTP_200_OK
+            )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
